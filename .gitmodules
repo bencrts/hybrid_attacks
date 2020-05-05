@@ -1,0 +1,7 @@
+[submodule "estimator"]
+	path = estimator
+	url = https://bitbucket.org/malb/lwe-estimator
+[submodule "hybrid_dual"]
+	path = hybrid_dual
+	url = https://bitbucket.org/bencrts/lwe-estimator
+	branch = hybrid-dual
