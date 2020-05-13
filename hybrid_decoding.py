@@ -291,8 +291,6 @@ def parameter_search(n, alpha, q, m, secret_distribution, mitm = True, reduction
         beta_max = max_blocksize(secbits, reduction_cost_model = reduction_cost_model)
         print("the maximal blocksize is {}".format(beta_max))
 
-    print("BETA MAX IS {}".format(beta_max))
-
     # NOTE: we decribe our searching strategy below. To produce more accurate estimates,
     # change this part of the code to ensure a more granular search. As we are using
     # homomorphic-encryption style parameters, the running time of the code can be quite high,
