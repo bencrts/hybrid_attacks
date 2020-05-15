@@ -16,52 +16,6 @@ core_qsieve = lambda beta, d, B: ZZ(2)**RR(0.265*beta + 16.4)
 
 ## Utility functions
 
-def _primal_scale_factor(secret_distribution, alpha=None, q=None, n=None):
-    """
-    Scale factor for primal attack, in the style of [BaiGal14]. In the case of non-centered secret
-    distributions, it first appropriately rebalances the lattice bases to maximise the scaling.
-    Note that this function has been copied from the LWE-Estimator as importing threw an error.
-
-    :param secret_distribution: distribution of secret, see module level documentation for details
-    :param alpha: noise rate `0 ≤ α < 1`, noise has standard deviation `αq/sqrt{2π}`
-    :param q: modulus `0 < q`
-    :param n: only used for sparse secrets
-
-    """
-
-    # For small/sparse secret use Bai and Galbraith's scaled embedding
-    # NOTE: We assume a <= 0 <= b
-
-    scale = RR(1)
-    if est.SDis.is_small(secret_distribution):
-        # target same same shortest vector length as in Kannan's embedding of same dimension
-        stddev = est.stddevf(alpha*q)
-        var_s = est.SDis.variance(secret_distribution, alpha, q, n=n)
-        if stddev**2 > var_s:
-            # only scale if the error is sampled wider than the secret
-            scale = stddev/RR(sqrt(var_s))
-
-    return scale
-
-
-def max_blocksize(secbits, reduction_cost_model = est.BKZ.sieve):
-    """ A function to determine the maximal blocksize using CORE cost models.
-        This provides a (strict) upper bound on beta for our computations, to allow
-        for more efficient searching
-    :param secbits: the target security level
-    :param reduction_cost_model: the lattice reduction cost model used for BKZ
-
-    """
-
-    rop = 0
-    beta_max = 40
-    while rop <= secbits:
-        beta_max += 5
-        rop = log(est.lattice_reduction_cost(reduction_cost_model, est.delta_0f(beta_max), 1)["rop"],2)
-
-    return beta_max
-
-
 def sq_GSO(d, beta, det):
     """
     Return squared GSO lengths after lattice reduction according to the GSA
@@ -141,7 +95,7 @@ def hybrid_decoding_attack(n, alpha, q, m, secret_distribution,
     sd = alpha*q/sqrt(2*pi)
 
     # compute the scaling factor used in the primal lattice to balance the secret and error
-    scale = _primal_scale_factor(secret_distribution, alpha=alpha, q=q, n=n)
+    scale = est._primal_scale_factor(secret_distribution, alpha=alpha, q=q, n=n)
 
     # 1. get squared-GSO lengths via the Geometric Series Assumption
     # we could also consider using the BKZ simulator, using the GSA is conservative
@@ -221,7 +175,7 @@ def hybrid_decoding_attack(n, alpha, q, m, secret_distribution,
 
 ## Optimize attack parameters
 
-def parameter_search(n, alpha, q, m, secret_distribution, mitm = True, reduction_cost_model=est.BKZ.sieve, secbits = None):
+def parameter_search(n, alpha, q, m, secret_distribution, mitm = True, reduction_cost_model=est.BKZ.sieve):
 
     """
     :param n: LWE dimension `n > 0`
@@ -276,34 +230,27 @@ def parameter_search(n, alpha, q, m, secret_distribution, mitm = True, reduction
                     reduction_cost_model=reduction_cost_model,
                     mitm=mitm)
 
-    best = None
-
-    # when searching for parameters of a specific security level (e.g 128-bits), we can use the input parameter
-    # 'secbits'. This gives us an upper bound on the blocksize being used (this will not search for any beta
-    # such that the cost of BKZ(beta) on a dimension 1 lattice is > 2**secbits). This is useful when deriving
-    # parameters for a given security level, but should not be used when finding the security level of a given
-    # parameter set.
-
-    if secbits is None:
-        beta_max = n
-    else:
-        # compute max blocksize based on a dimension 1 lattice
-        beta_max = max_blocksize(secbits, reduction_cost_model = reduction_cost_model)
-        print("the maximal blocksize is {}".format(beta_max))
-
     # NOTE: we decribe our searching strategy below. To produce more accurate estimates,
     # change this part of the code to ensure a more granular search. As we are using
     # homomorphic-encryption style parameters, the running time of the code can be quite high,
     # justifying the below choices.
     # We start at beta = 60 and go up to beta_max in steps of 50
 
-    beta_search = (60, beta_max, 50)
+    beta_max = bl["beta"] + 100
+    beta_search = (40, beta_max, 50)
 
+    best = None
     for beta in range(beta_search[0], beta_search[1], beta_search[2])[::-1]:
         tau = 0
         best_beta = None
+        count = 3
         while tau < n:
+            if count >= 0:
                 cost = f(beta=beta, tau=tau)
+                if best_beta is not None:
+                    # if two consecutive estimates don't decrease, stop optimising over tau
+                    if best_beta["rop"] < cost["rop"]:
+                        count -= 1
                 cost["tau"] = tau
                 if best_beta is None:
                     best_beta = cost
@@ -313,16 +260,31 @@ def parameter_search(n, alpha, q, m, secret_distribution, mitm = True, reduction
                     best = cost
                 if RR(log(cost["rop"],2)) < RR(log(best["rop"],2)):
                     best = cost
-                # tau is searched in steps of n//10
-                tau += n//10
+            tau += n//100
 
     # now do a second, more granular search
     # we start at the beta which produced the lowest running time, and search ± 25 in steps of 10
+    tau_gap = max(n//100, 1)
     for beta in range(best["beta"] - 25, best["beta"] + 25, 10)[::-1]:
-        # we start at the tau which produced the lowest running time, and search ± n//20 in steps of n//100 or 1, whichever is higher
-        for tau in range(max(best["tau"] - n//20,0), best["tau"] + n//20, max(n//100,1)):
-            cost = f(beta=beta, tau=tau)
-            cost["tau"] = tau
-            if cost["rop"] < best["rop"]:
-                best = cost
+        tau = max(best["tau"] - 25,0)
+        best_beta = None
+        count = 3
+        while tau <= best["tau"] + 25:
+            if count >= 0:
+                cost = f(beta=beta, tau=tau)
+                if best_beta is not None:
+                    # if two consecutive estimates don't decrease, stop optimising over tau
+                    if best_beta["rop"] < cost["rop"]:
+                        count -= 1
+                cost["tau"] = tau
+                if best_beta is None:
+                    best_beta = cost
+                if RR(log(cost["rop"],2)) < RR(log(best_beta["rop"],2)):
+                    best_beta = cost
+                if best is None:
+                    best = cost
+                if RR(log(cost["rop"],2)) < RR(log(best["rop"],2)):
+                    best = cost
+            tau += tau_gap
+
     return best
