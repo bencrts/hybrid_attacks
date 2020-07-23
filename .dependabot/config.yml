@@ -1,0 +1,9 @@
+# yml file for keeping dependencies up-to-date
+
+version: 1
+update_configs:
+  # we want to keep track of submodules
+  - package_manager: "submodules"
+    directory: "/"
+    # check daily
+    update_schedule: "daily"
