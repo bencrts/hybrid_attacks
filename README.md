@@ -188,10 +188,12 @@ There are several other implementations of hybrid attack estimates, we note thes
 1. The NTRUPrime team's scripts: <url> https://ntruprime.cr.yp.to/estimate-20190329.sage </url>
 2. Thomas Wunderer's scripts, hosted by Leo Ducas: <url>https://github.com/lducas/LatRedHybrid </url>
 3. Rachel Player's edited variant of Wunderer's scripts: <url> https://github.com/rachelplayer/LatRedHybrid </url>
+4. The script on Yongha Son's github page <url> https://github.com/Yongyongha/SparseLWE-estimator </url> associated to [SC19]
 
 ### Hybrid Dual
 
 1. The script provided by [CHHS19]: <url>https://github.com/swanhong/HybridLWEAttack</url>
+2. The script on Yongha Son's github page <url> https://github.com/Yongyongha/SparseLWE-estimator </url> associated to [CHHS19]
 
 ## References
 
@@ -201,5 +203,6 @@ There are several other implementations of hybrid attack estimates, we note thes
 [CP19] <url>https://eprint.iacr.org/2019/1148</url> <br>
 [Est20] <url>https://bitbucket.org/malb/lwe-estimator</url><br>
 [How07] <url>https://www.iacr.org/archive/crypto2007/46220150/46220150.pdf </url><br>
+[SC19] <url> https://eprint.iacr.org/2019/1019.pdf </url>
 
 
